@@ -3,6 +3,7 @@ package com.awesome.solutions.roboTaxiSpeedCalculator;
 import com.awesome.solutions.model.RoboTaxiPosition;
 import com.awesome.solutions.model.RoboTaxiPositionWithSpeed;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Lists;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -12,8 +13,6 @@ import org.apache.kafka.common.serialization.StringDeserializer;
 import java.awt.geom.Point2D;
 import java.time.Duration;
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.StreamSupport;
 
 //works fine only if there is one car producing records to input topic
 public class RoboTaxiSpeedCalculatorSimple {
@@ -35,38 +34,23 @@ public class RoboTaxiSpeedCalculatorSimple {
         KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProperties);
         consumer.subscribe(List.of("carsInfo"));
 
-        Map<String, RoboTaxiPositionWithSpeed> positionsWithSpeed = new HashMap<>();
-
         while (true) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
+            ArrayList<ConsumerRecord<String, String>> recordsList = Lists.newArrayList(records.iterator());
 
-            Map<String, List<ConsumerRecord<String, String>>> groupedByKey =
-                    StreamSupport.stream(records.spliterator(), false)
-                            .collect(Collectors.groupingBy(ConsumerRecord::key));
-
-            for (Map.Entry<String, List<ConsumerRecord<String, String>>> entry : groupedByKey.entrySet()) {
-                String key = entry.getKey();
-                List<ConsumerRecord<String, String>> recordsList = entry.getValue();
-
-                if (recordsList.size() == 1) {
-                    previous = current;
-                    current = json.readValue(recordsList.get(0).value(), RoboTaxiPosition.class);
-                } else if (recordsList.size() > 1) {
-                    current = json.readValue(recordsList.get(recordsList.size() - 1).value(), RoboTaxiPosition.class);
-                    previous = json.readValue(recordsList.get(recordsList.size() - 2).value(), RoboTaxiPosition.class);
-                }
-
-                if (current != null && previous != null) {
-                    RoboTaxiPositionWithSpeed positionWithSpeed = positionWithSpeed(current, previous);
-                    positionsWithSpeed.put(key, positionWithSpeed);
-                }
+            if (recordsList.size() == 1) {
+                previous = current;
+                current = json.readValue(recordsList.get(0).value(), RoboTaxiPosition.class);
+            } else if (recordsList.size() > 1) {
+                current = json.readValue(recordsList.get(recordsList.size() - 1).value(), RoboTaxiPosition.class);
+                previous = json.readValue(recordsList.get(recordsList.size() - 2).value(), RoboTaxiPosition.class);
             }
 
-            System.out.println(positionsWithSpeed);
-
+            if (current != null && previous != null) {
+                RoboTaxiPositionWithSpeed positionWithSpeed = positionWithSpeed(current, previous);
+                System.out.println(positionWithSpeed);
+            }
         }
-
-
     }
 
     public static RoboTaxiPositionWithSpeed positionWithSpeed(RoboTaxiPosition current, RoboTaxiPosition previous) {

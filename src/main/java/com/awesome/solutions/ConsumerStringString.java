@@ -24,7 +24,6 @@ public class ConsumerStringString {
         while (true) {
             ConsumerRecords<String, String> records = consumer.poll(Duration.ofSeconds(5));
 
-
             records.forEach(record -> {
                 System.out.println("key= " + record.key() + "\nvalue= " + record.value());
                 System.out.println(record.timestamp());
